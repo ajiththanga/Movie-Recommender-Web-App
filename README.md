@@ -1,8 +1,8 @@
 # Movie Recommender Web App
 
-Data from IMDB and OMDB
-Scripts to extract, clean, and explore data located in /DATA
+Data from IMDB and OMDB <\b>
+Scripts to extract, clean, and explore data located in /DATA <\b>
 
-Coming Soon:
-Similarity algorithm
-Web app
+Coming Soon: <\b>
+Similarity algorithm <\b>
+Web app <\b>
