@@ -1,5 +1,5 @@
-Code to produce histograms and get stats <br/> 
-Pictures of graphs in /Graphs <br/> 
+Code to explore data, produce histograms, and get stats <br/> 
+pngs of graphs uploaded to repo <br/> 
 
 ### Year
 min: 1894, max: 2020 <br/> 
