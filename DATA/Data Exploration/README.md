@@ -1,4 +1,4 @@
-Code to explore data, produce histograms, and get stats <br/> 
+Code to explore data (understand variables and biases, produce histograms,  get stats, etc.) <br/> 
 pngs of graphs uploaded to repo <br/> 
 
 ### Year
