@@ -5,6 +5,8 @@
 * Explore contemporary recommendation systems using Python
 * Need better movies to watch
 
+### Code
+
 Data from IMDB and OMDB <br/> 
 Scripts to extract, clean, and explore data located in /DATA <br/> 
 
