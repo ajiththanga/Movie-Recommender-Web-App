@@ -5,14 +5,14 @@
 * Explore contemporary recommendation systems using Python
 * Need better movies to watch
 
-### DATA
+### Data
 
 Data from IMDB and OMDB <br/> 
 Scripts to extract, clean, and explore data using Python located in /DATA <br/> 
 
-### RECOMMENDATION ALGORITHM
+### Recommendation Algorithm
 
-Coded a content-based recommendation algorithm using Python <br/>
+Coded a content-based recommendation algorithm using Python located in /ALGORITHM <br/>
 Takes in up to 3 movies as inputs and returns a list of 10 recommendations based on numerical and text features <br/>
 Uses numpy arrays, count vectorizers, tfidf vectorizers, word2vec embeddings, k-means clustering and cosine similarity <br/>
 
