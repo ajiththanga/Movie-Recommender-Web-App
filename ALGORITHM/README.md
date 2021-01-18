@@ -1,13 +1,13 @@
 ### Pre-Processing
-Plot Feature
+Plot Feature <br />
 * Remove punctuation, lowercase
 * Create corpus of words
 * Using Google pretrained Word2Vec model, train corpus
-* Build TD-IDF W2V model and save embeddings <br/>
-Other Text Features
+* Build TD-IDF W2V model and save embeddings <br />
+Other Text Features <br />
 * Lowercase, combine names
 * Create and save a count matrix for each feature <br/>
-Numerical Features
+Numerical Features <br />
 * Create and save numpy array
 
 ### Recommendation Algorithm
