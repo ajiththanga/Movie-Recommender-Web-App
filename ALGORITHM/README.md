@@ -3,10 +3,10 @@ Plot Feature
 * Remove punctuation, lowercase
 * Create corpus of words
 * Using Google pretrained Word2Vec model, train corpus
-* Build TD-IDF W2V model and save embeddings
+* Build TD-IDF W2V model and save embeddings <br/>
 Other Text Features
 * Lowercase, combine names
-* Create and save a count matrix for each feature
+* Create and save a count matrix for each feature <br/>
 Numerical Features
 * Create and save numpy array
 
