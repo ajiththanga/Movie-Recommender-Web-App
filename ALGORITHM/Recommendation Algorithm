@@ -1,0 +1,168 @@
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy import sparse
+import kmeans1d
+
+class Recommendation_Algorithm():
+    
+    def __init__(self, chosen_movies):
+        self.chosen_movies = chosen_movies
+    
+    def get_recommendations(self):
+        
+        # read cleaned omdb datafram
+        df = pd.read_json(r'omdb_data_clean.json')
+        df.set_index('imdbID', inplace = True)
+
+        indices = pd.Series(df.index)
+        
+        # get imdb ids, and index numbers of chosen movies
+        chosen_imdbIDs = []
+        chosen_index_list = []
+    
+        for movie in chosen_movies:
+            imdbID = df[df['Title']==movie].index[0]
+            chosen_imdbIDs.append(imdbID)
+            idx = indices[indices == imdbID].index[0]
+            chosen_index_list.append(idx)
+            
+        num_movies = len(chosen_imdbIDs)
+        
+        # load vectors
+        tfidf_matrix = np.load('embeddings.npy', allow_pickle=True)
+        count_matrix_1 = sparse.load_npz("genre.npz")
+        count_matrix_2 = sparse.load_npz("director.npz")
+        count_matrix_3 = sparse.load_npz("actor.npz")
+        count_matrix_4 = sparse.load_npz("country.npz")
+        count_matrix_5 = sparse.load_npz("production.npz")
+        num_features_matrix = np.load('num.npy', allow_pickle=True)
+        
+        ### cosine similarity loop for each selected movie
+        text_feature_weight = 0.4
+        plot_feature_weight = 0.2
+        num_feature_weight = 0.2
+        score_series_list = []
+
+        for idx in chosen_index_list:
+
+            # text feature cosine similarity
+            cosine_sim_count_1 = cosine_similarity(count_matrix_1[idx:idx+1], count_matrix_1)
+            cosine_sim_count_1d_1 = cosine_sim_count_1.flatten()
+            score_series_count_1 = pd.Series(cosine_sim_count_1d_1)
+
+            cosine_sim_count_2 = cosine_similarity(count_matrix_2[idx:idx+1], count_matrix_2)
+            cosine_sim_count_1d_2 = cosine_sim_count_2.flatten()
+            score_series_count_2 = pd.Series(cosine_sim_count_1d_2)
+
+            cosine_sim_count_3 = cosine_similarity(count_matrix_3[idx:idx+1], count_matrix_3)
+            cosine_sim_count_1d_3 = cosine_sim_count_3.flatten()
+            score_series_count_3 = pd.Series(cosine_sim_count_1d_3)
+
+            cosine_sim_count_4 = cosine_similarity(count_matrix_4[idx:idx+1], count_matrix_4)
+            cosine_sim_count_1d_4 = cosine_sim_count_4.flatten()
+            score_series_count_4 = pd.Series(cosine_sim_count_1d_4)
+
+            cosine_sim_count_5 = cosine_similarity(count_matrix_5[idx:idx+1], count_matrix_5)
+            cosine_sim_count_1d_5 = cosine_sim_count_5.flatten()
+            score_series_count_5 = pd.Series(cosine_sim_count_1d_5)
+
+            # weighted text feature cos sim
+            score_series_count_weighted_1 = score_series_count_1*0.2
+            score_series_count_weighted_2 = score_series_count_2*0.2
+            score_series_count_weighted_3 = score_series_count_3*0.2
+            score_series_count_weighted_4 = score_series_count_4*0.2
+            score_series_count_weighted_5 = score_series_count_5*0.2
+            score_series_count_weighted = score_series_count_weighted_1.add(score_series_count_weighted_2, fill_value=0)
+            score_series_count_weighted = score_series_count_weighted.add(score_series_count_weighted_3, fill_value=0)
+            score_series_count_weighted = score_series_count_weighted.add(score_series_count_weighted_4, fill_value=0)
+            score_series_count_weighted = score_series_count_weighted.add(score_series_count_weighted_5, fill_value=0)
+
+            # plot feature cos sim
+            cosine_sim_tfidf = cosine_similarity(tfidf_matrix[idx:idx+1], tfidf_matrix)
+            cosine_sim_tfidf_1d = cosine_sim_tfidf.flatten()
+            score_series_tfidf = pd.Series(cosine_sim_tfidf_1d)
+
+            # num feature cos sim
+            cosine_sim_num = cosine_similarity(num_features_matrix[idx:idx+1], num_features_matrix)
+            cosine_sim_num_1d = cosine_sim_num.flatten()
+            score_series_num = pd.Series(cosine_sim_num_1d)
+
+            # combine text, plot, num cos sim
+            score_series_count_weighted2 = score_series_count_weighted*text_feature_weight
+            score_series_tfidf_weighted = score_series_tfidf*plot_feature_weight
+            score_series_num_weighted = score_series_num*num_feature_weight
+            score_series_weighted = score_series_count_weighted2.add(score_series_tfidf_weighted, fill_value=0)
+            score_series_weighted = score_series_weighted.add(score_series_num_weighted, fill_value=0)
+            score_series_list.append(score_series_weighted)
+            
+        ### get final list of recommendations in order
+        # average score series between all chosen movies
+        cos_sim_df = pd.concat(score_series_list, axis=1)
+        cos_sim_df = cos_sim_df.drop(cos_sim_df.index[chosen_index_list])
+        cos_sim_df['average_cos_sim'] = cos_sim_df.mean(axis=1)
+        cos_sim_df = cos_sim_df.sort_values('average_cos_sim', ascending=False)
+
+        # shuffle order (with logic) for a little randomness
+        cos_sim_df_top20 = cos_sim_df.head(20)
+        cos_sim_df_top20 = cos_sim_df_top20.sample(frac=1)
+        cos_sim_df_1_10 = cos_sim_df_top20.head(10)
+        cos_sim_df_1_10 = cos_sim_df_1_10.sort_values('average_cos_sim', ascending=False)
+        cos_sim_df_11_20 = cos_sim_df_top20.iloc[10:20].sort_values('average_cos_sim', ascending=False)
+        cos_sim_df_21_40 = cos_sim_df.iloc[20:40].sort_values('average_cos_sim', ascending=False)
+        cos_sim_df_final = cos_sim_df_1_10
+        cos_sim_df_final = cos_sim_df_final.append(cos_sim_df_11_20)
+        cos_sim_df_final = cos_sim_df_final.append(cos_sim_df_21_40)
+        
+        ### filter by numerical features
+        
+        # create vote clusters column
+        votes_clusters = kmeans1d.cluster(df['imdbVotes'], 20)
+        df['imdbVotes Clusters'] = votes_clusters[0]
+        
+        # initialize numerical filter parameters
+        recommended_movies = []
+
+        chosen_years_list = []
+        for imdbID in chosen_imdbIDs:
+            chosen_years_list.append(df.at[imdbID,'Year'])
+
+        chosen_ratings_list = []
+        for imdbID in chosen_imdbIDs:
+            chosen_ratings_list.append(df.at[imdbID,'imdbRating'])
+
+        chosen_votes_clusters_list = []
+        for imdbID in chosen_imdbIDs:
+            chosen_votes_clusters_list.append(df.at[imdbID,'imdbVotes Clusters'])
+
+        year_range = 10
+        rating_range = 1
+        votes_cluster_range = 1
+        min_filter = len(chosen_imdbIDs)*2 - 1
+
+        for i in list(cos_sim_df.index):
+            n = 0
+            movie_rec_id = df.index[i]
+            # year
+            for chosen_year in chosen_years_list:
+                if abs(chosen_year-df.at[movie_rec_id,'Year']) <= year_range :
+                    n += 1
+            # imdb rating
+            for chosen_rating in chosen_ratings_list:
+                if abs(chosen_rating-df.at[movie_rec_id,'imdbRating']) <= rating_range or df.at[movie_rec_id,'imdbRating'] > chosen_rating:
+                    n += 1
+            # amount of imdb votes
+            for chosen_votes_cluster in chosen_votes_clusters_list:
+                if abs(chosen_votes_cluster-df.at[movie_rec_id,'imdbVotes Clusters']) <= votes_cluster_range:
+                    n += 1
+            if n > min_filter:
+                recommended_movies.append(list(df.index)[i])
+            if len(recommended_movies) > 9:
+                break
+                
+        return df.loc[recommended_movies]
+
+
+chosen_movies = ['The Tale of The Princess Kaguya', 'Portrait of a Lady on Fire', 'The Last Black Man in San Francisco'] 
+recommendation_instance = Recommendation_Algorithm(chosen_movies)
+recommendation_instance.get_recommendations()
