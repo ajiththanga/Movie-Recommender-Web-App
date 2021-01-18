@@ -1,0 +1,141 @@
+from scipy import sparse
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+import nltk
+nltk.download('stopwords')
+nltk.download('wordnet')
+from nltk.stem import WordNetLemmatizer
+import re
+import string
+from gensim.models import Word2Vec
+from gensim.models import KeyedVectors
+
+# read cleaned omdb df
+df = pd.read_json(r'omdb_data_clean.json')
+df.set_index('imdbID', inplace = True)
+
+
+### PLOT FEATURE
+
+# create plot dataframe
+plot_features_df = df[['Plot']]
+plot_features_df = plot_features_df.replace(to_replace ="N/A", value ="") 
+
+# clean plot feature
+plot_features['Plot_clean'] = ""
+
+lemmatizer = WordNetLemmatizer() 
+
+for index, row in plot_features.iterrows():
+    plot = row['Plot']
+    plot = plot.translate(str.maketrans('', '', string.punctuation))
+    plot = plot.lower()
+    plot = re.sub(r'\d+', 'num', plot)
+    
+    # assigning to the new column
+    row['Plot_clean'] = plot
+
+corpus = []
+for words in plot_features['Plot_clean']:
+    corpus.append(words.split())
+
+# Downloading the Google pretrained Word2Vec Model
+import urllib.request
+url = 'https://s3.amazonaws.com/dl4j-distribution/GoogleNews-vectors-negative300.bin.gz'
+filename = 'GoogleNews-vectors-negative300.bin.gz'
+urllib.request.urlretrieve(url, filename)
+
+EMBEDDING_FILE = 'GoogleNews-vectors-negative300.bin.gz'
+google_word2vec = KeyedVectors.load_word2vec_format(EMBEDDING_FILE, binary=True)
+
+# Training our corpus with Google Pretrained Model
+
+google_model = Word2Vec(size = 300, window=5, min_count = 2, workers = -1)
+google_model.build_vocab(corpus)
+
+#model.intersect_word2vec_format('./word2vec/GoogleNews-vectors-negative300.bin', lockf=1.0, binary=True)
+
+google_model.intersect_word2vec_format(EMBEDDING_FILE, lockf=1.0, binary=True)
+
+google_model.train(corpus, total_examples=google_model.corpus_count, epochs = 5)
+
+tfidf = TfidfVectorizer(analyzer='word', ngram_range=(1, 3), min_df = 5, stop_words='english')
+tfidf.fit(feature_df['Plot_clean'])
+
+# Getting the words from the TF-IDF model
+
+tfidf_list = dict(zip(tfidf.get_feature_names(), list(tfidf.idf_)))
+tfidf_feature = tfidf.get_feature_names() # tfidf words/col-names
+
+# Building TF-IDF Word2Vec 
+
+# Storing the TFIDF Word2Vec embeddings
+tfidf_vectors = []; 
+line = 0;
+# for each plot
+for plot in corpus:
+  # Word vectors are of zero length (Used 300 dimensions)
+    sent_vec = np.zeros(300) 
+    # num of words with a valid vector in the book description
+    weight_sum =0; 
+    # for each word in the plot
+    for word in plot:
+        if word in google_model.wv.vocab and word in tfidf_feature:
+            vec = google_model.wv[word]
+            tf_idf = tfidf_list[word] * (plot.count(word) / len(plot))
+            sent_vec += (vec * tf_idf)
+            weight_sum += tf_idf
+    if weight_sum != 0:
+        sent_vec /= weight_sum
+    tfidf_vectors.append(sent_vec)
+    line += 1
+
+# save model
+tfidf_vectors_saved = np.array(tfidf_vectors)
+np.save('embeddings.npy', tfidf_vectors_saved) 
+
+
+### TEXT FEATURES (non-plot)
+
+# create text_features_df
+text_features_df = df[['Genre', 'Director', 'Actors', 'Country', 'Production']]
+text_features_df = text_features_df.replace(to_replace ="N/A", value ="")
+
+## clean values
+
+# lowercase
+text_features_df = text_features_df.apply(lambda x: x.str.lower())
+
+# combine names
+text_features_df = text_features_df.replace(' ', '', regex=True)
+text_features_df = text_features_df.replace(',', ' ', regex=True)
+
+# instantiating and generating count matrices for each text feature
+count = CountVectorizer()
+count_matrix_1 = count.fit_transform(text_features_df['Genre'])
+count_matrix_2 = count.fit_transform(text_features_df['Director'])
+count_matrix_3 = count.fit_transform(text_features_df['Actors'])
+count_matrix_4 = count.fit_transform(text_features_df['Country'])
+count_matrix_5 = count.fit_transform(text_features_df['Production'])
+
+### save matrices ###
+sparse.save_npz("genre.npz", count_matrix_1)
+sparse.save_npz("director.npz", count_matrix_2)
+sparse.save_npz("actor.npz", count_matrix_3)
+sparse.save_npz("country.npz", count_matrix_4)
+sparse.save_npz("production.npz", count_matrix_5)
+
+
+### NUM FEATURES
+
+# create num_features_df
+num_features_df = df[['Year', 'imdbRating', 'imdbVotes']]
+num_features_df = num_features_df.replace(to_replace ="N/A", value ="") 
+
+# matrix for numerical feature cos sim
+num_features_matrix = num_features_df[['Year', 'imdbRating', 'imdbVotes']].to_numpy()
+
+# save matrix
+num_vector = np.array(num_features_matrix)
+np.save('num.npy', num_vector)
